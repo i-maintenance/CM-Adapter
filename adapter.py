@@ -4,6 +4,7 @@ import json
 import threading
 import logging
 import pandas as pd
+import pytz
 import requests
 from kafka import KafkaProducer
 
@@ -69,11 +70,11 @@ def fetch_sensor_data():
 
 def publish_sensor_data(sensor_data):
     for observation_time in sensor_data.index:
-        for sensor in [s for s in sensor_data.columns if s != 'Result']:
+        for sensor in [s for s in sensor_data.columns if s != 'Record']:
             message = {
-                'phenomenonTime': str(observation_time),
-                'resultTime': str(datetime.now()),
-                'result': sensor_data.loc[observation_time, sensor],
+                'phenomenonTime': observation_time.replace(tzinfo=pytz.UTC).isoformat(),
+                'resultTime': datetime.utcnow().replace(tzinfo=pytz.UTC).isoformat(),
+                'result': float(sensor_data.loc[observation_time, sensor]),
                 'Datastream': {'@iot.id': sensor}}
             producer.send(KAFKA_TOPIC, message)
 
