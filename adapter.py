@@ -1,5 +1,5 @@
 import csv
-import datetime as dt
+from datetime import datetime, timedelta
 import json
 import threading
 import logging
@@ -9,25 +9,33 @@ from kafka import KafkaProducer
 
 CM_APP_HOST = 'http://192.168.13.101'
 KAFKA_TOPIC = 'SensorData'
-UPDATE_INTERVAL = 0.1  # in minutes
+BOOTSTRAP_SERVERS = ['il061:9092']
+UPDATE_INTERVAL = 2  # in minutes
 
-producer = KafkaProducer(bootstrap_servers=['il061:9092'],
+producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,
                          api_version=(0, 9),
                          value_serializer=lambda m: json.dumps(m).encode('ascii'))
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def update():
+def update(last_sent_time=None):
     try:
         sensor_data = fetch_sensor_data()
-        publish_sensor_data(sensor_data=sensor_data)
+        logger.info('Fetched {} sensor entries'.format(len(sensor_data)))
+        last_sent_time, num_entries_sent = publish_sensor_data(sensor_data=sensor_data,
+                                                               last_sent_time=last_sent_time)
+        logger.info('Published {} new sensor entries till {}'.format(num_entries_sent, last_sent_time))
     except Exception as e:
         logger.exception(e)
 
     # schedule next update
-    logger.info('scheduled next update')
-    threading.Timer(UPDATE_INTERVAL * 60, update).start()
+    next_time = datetime.now() + timedelta(minutes=UPDATE_INTERVAL)
+    threading.Timer((next_time - datetime.now()).total_seconds(),
+                    function=update,
+                    kwargs={'last_sent_time': last_sent_time}).start()
+    logger.info('Scheduled next update at {}'.format(next_time))
 
 
 def fetch_sensor_data():
@@ -53,20 +61,25 @@ def fetch_sensor_data():
     return sensor_data
 
 
-def publish_sensor_data(sensor_data):
-    for observation_time in sensor_data.index:
-        for sensor in [s for s in sensor_data.columns if s != 'Result']:
+def publish_sensor_data(sensor_data, last_sent_time=None):
+    if not last_sent_time:
+        last_sent_time = datetime.fromtimestamp(0)
+
+    data_to_send = sensor_data.ix[sensor_data.index > last_sent_time]
+    for observation_time in data_to_send.index:
+        for sensor in [s for s in data_to_send.columns if s != 'Result']:
             message = {
                 'phenomenonTime': str(observation_time),
-                'resultTime': str(dt.datetime.now()),
+                'resultTime': str(datetime.now()),
                 'result': sensor_data.loc[observation_time, sensor],
-                'Datastream': {'@iot.id': 'TODO: REPLACE!!'}}
+                'Datastream': {'@iot.id': sensor}}
             producer.send(KAFKA_TOPIC, message)
-
-    logger.info('Published {} sensor entries'.format(len(sensor_data)))
 
     # block until all messages are sent
     producer.flush()
+
+    # return last sent time
+    return sensor_data.index[-1], len(data_to_send)
 
 
 if __name__ == '__main__':
