@@ -46,7 +46,7 @@ def update(last_sent_time=None):
 
 def fetch_sensor_data():
     url = CM_APP_HOST + '/FileBrowser/Download?Path=/DataLogs/SalzburgResearch_Logging.csv'
-    headers = {'Referer': 'http://192.168.13.101/Portal/Portal.mwsl?PriNav=FileBrowser&Path=/DataLogs/"'}
+    headers = {'Referer': CM_APP_HOST + '/Portal/Portal.mwsl?PriNav=FileBrowser&Path=/DataLogs/"'}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
     csv_data = response.text.splitlines()
