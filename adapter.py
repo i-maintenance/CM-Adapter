@@ -39,10 +39,9 @@ def update(last_sent_time=None):
         logger.exception(e)
 
     # schedule next update
-    next_time = datetime.now() + timedelta(minutes=UPDATE_INTERVAL)
-    interval = (next_time - datetime.now()).total_seconds()
+    interval = timedelta(minutes=UPDATE_INTERVAL).total_seconds()
     threading.Timer(interval=interval, function=update, kwargs={'last_sent_time': last_sent_time}).start()
-    logger.info('Scheduled next update at {}'.format(next_time))
+    logger.info('Scheduled next update at {}'.format(datetime.now() + timedelta(minutes=UPDATE_INTERVAL)))
 
 
 def fetch_sensor_data():
