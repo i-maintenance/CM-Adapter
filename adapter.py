@@ -97,10 +97,6 @@ def publish_sensor_data(sensor_data, id_map, kafka_topic):
     producer.flush()
 
 
-def map_id(cm_id, mapping):
-    return mapping[cm_id]
-
-
 def fetch_id_mapping(host, port):
     mapping = dict()
     url = 'http://{}:{}/v1.0/Datastreams'.format(host, port)
