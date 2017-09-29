@@ -114,7 +114,7 @@ def fetch_id_mapping(host, port):
             break
         url = datastreams['@iot.nextLink']
 
-    logger.info('Fetched id mapping: %s', mapping, extra=mapping)
+    logger.info('Fetched id mapping: %s', mapping, extra={'id_map': mapping})
     return mapping
 
 
