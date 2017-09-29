@@ -41,16 +41,16 @@ producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,
 def update(last_sent_time=None):
     try:
         # fetch sensor data
-        sensor_data = fetch_sensor_data()
+        sensor_data = fetch_sensor_data(cm_host=CM_APP_HOST)
         logger.info('Fetched {} sensor entries'.format(len(sensor_data)))
 
         # filter data
-        data_to_send = sensor_data.ix[sensor_data.index > last_sent_time] if last_sent_time else sensor_data
+        sensor_data = sensor_data.ix[sensor_data.index > last_sent_time] if last_sent_time else sensor_data
 
         # delegate to messaging bus
-        publish_sensor_data(sensor_data=data_to_send, id_map=id_mapping, kafka_topic=KAFKA_TOPIC)
+        publish_sensor_data(data=sensor_data, id_map=id_mapping, topic=KAFKA_TOPIC, ignored=IGNORED_FIELDS)
         last_sent_time = sensor_data.index[-1]
-        logger.info('Published {} new sensor entries till {}'.format(len(data_to_send), last_sent_time))
+        logger.info('Published {} new sensor entries till {}'.format(len(sensor_data), last_sent_time))
 
     except Exception as e:
         logger.exception(e)
@@ -61,9 +61,9 @@ def update(last_sent_time=None):
     logger.info('Scheduled next update at {}'.format(datetime.now() + timedelta(minutes=UPDATE_INTERVAL)))
 
 
-def fetch_sensor_data():
-    url = CM_APP_HOST + '/FileBrowser/Download?Path=/DataLogs/SalzburgResearch_Logging.csv'
-    headers = {'Referer': CM_APP_HOST + '/Portal/Portal.mwsl?PriNav=FileBrowser&Path=/DataLogs/"'}
+def fetch_sensor_data(cm_host):
+    url = cm_host + '/FileBrowser/Download?Path=/DataLogs/SalzburgResearch_Logging.csv'
+    headers = {'Referer': cm_host + '/Portal/Portal.mwsl?PriNav=FileBrowser&Path=/DataLogs/"'}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
     csv_data = response.text.splitlines()
@@ -84,14 +84,18 @@ def fetch_sensor_data():
     return sensor_data
 
 
-def publish_sensor_data(sensor_data, id_map, kafka_topic):
-    for observation_time in sensor_data.index:
-        for sensor in [s for s in sensor_data.columns if s not in IGNORED_FIELDS]:
-            message = {'phenomenonTime': observation_time.replace(tzinfo=pytz.UTC).isoformat(),
-                       'resultTime': datetime.utcnow().replace(tzinfo=pytz.UTC).isoformat(),
-                       'result': float(sensor_data.loc[observation_time, sensor]),
+def publish_sensor_data(data, id_map, topic, ignored=None):
+
+    if ignored is None:
+        ignored = []
+
+    for observation_time in data.index:
+        for sensor in [s for s in data.columns if s not in ignored]:
+            message = {'phenomenonTime': observation_time.isoformat(),
+                       'resultTime': datetime.now().isoformat(),
+                       'result': float(data.loc[observation_time, sensor]),
                        'Datastream': {'@iot.id': id_map[sensor]}}
-            producer.send(kafka_topic, message)
+            producer.send(topic, message)
 
     # block until all messages are sent
     producer.flush()
