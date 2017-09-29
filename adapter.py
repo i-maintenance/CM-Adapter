@@ -6,7 +6,6 @@ import threading
 from datetime import datetime, timedelta
 import sys
 
-import pytz
 import requests
 import pandas as pd
 from kafka import KafkaProducer
@@ -48,7 +47,8 @@ def update(last_sent_time=None):
         sensor_data = sensor_data.ix[sensor_data.index > last_sent_time] if last_sent_time else sensor_data
 
         # delegate to messaging bus
-        publish_sensor_data(data=sensor_data, id_map=id_mapping, topic=KAFKA_TOPIC, ignored=IGNORED_FIELDS)
+        id_map = fetch_id_mapping(host=SENSORTHINGS_HOST, port=SENSORTHINGS_PORT)
+        publish_sensor_data(data=sensor_data, id_map=id_map, topic=KAFKA_TOPIC, ignored=IGNORED_FIELDS)
         last_sent_time = sensor_data.index[-1]
         logger.info('Published {} new sensor entries till {}'.format(len(sensor_data), last_sent_time))
 
@@ -119,5 +119,4 @@ def fetch_id_mapping(host, port):
 
 
 if __name__ == '__main__':
-    id_mapping = fetch_id_mapping(host=SENSORTHINGS_HOST, port=SENSORTHINGS_PORT)
     update()
