@@ -34,10 +34,16 @@ logger.info('Sending logstash to %s:%d', logstash_handler.host, logstash_handler
 
 producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,
                          api_version=(0, 9),
-                         value_serializer=lambda m: json.dumps(m).encode('ascii'))
+                         value_serializer=lambda m: json.dumps(m).encode('ascii'),
+                         acks='all')
 
 
 def update(last_sent_time=None):
+    """
+    Fetches recent sensor data from the CM setup and forwards new entries to the i-Maintenance messaging bus.
+    :param last_sent_time: Last time of previous update. Used to determine new entries.
+        If `None`, all entries will be forwarded.
+    """
     try:
         # fetch sensor data
         sensor_data = fetch_sensor_data(cm_host=CM_APP_HOST)
@@ -62,6 +68,11 @@ def update(last_sent_time=None):
 
 
 def fetch_sensor_data(cm_host):
+    """
+    Fetches sensor data from the CM host.
+    :param cm_host: URL of CH host.
+    :return: Dataframe containing fetched entries, whereas the column matches the columns in the CSV file.
+    """
     url = cm_host + '/FileBrowser/Download?Path=/DataLogs/SalzburgResearch_Logging.csv'
     headers = {'Referer': cm_host + '/Portal/Portal.mwsl?PriNav=FileBrowser&Path=/DataLogs/"'}
     response = requests.get(url, headers=headers)
@@ -85,7 +96,13 @@ def fetch_sensor_data(cm_host):
 
 
 def publish_sensor_data(data, id_map, topic, ignored=None):
-
+    """
+    Published sensor data to the i-Maintenance messaging bus (Kafka) using the SensorThings format.
+    :param data: Dataframe containing sensor data.
+    :param id_map: `dict` of mapping columns in the Dataframe to IDs in the SensorThings domain.
+    :param topic: Kafka topic in which the messages are published.
+    :param ignored: List of ignored column names. If `None` rows of all columns are published.
+    """
     if ignored is None:
         ignored = []
 
@@ -102,6 +119,12 @@ def publish_sensor_data(data, id_map, topic, ignored=None):
 
 
 def fetch_id_mapping(host, port):
+    """
+    Fetches IDs from SensorThings server and creates a dictionary with the proper ID mapping.
+    :param host: Host of SensorThings server.
+    :param port: Port of SensorThings server.
+    :return: `dict`, which is mapping CM specific IDs to global SensorThings IDs.
+    """
     mapping = dict()
     url = 'http://{}:{}/v1.0/Datastreams'.format(host, port)
     while True:
@@ -114,7 +137,7 @@ def fetch_id_mapping(host, port):
             break
         url = datastreams['@iot.nextLink']
 
-    logger.info('Fetched id mapping: %s', mapping, extra={'id_map': mapping})
+    logger.info('Fetched id mapping: %s', mapping, extra={'': mapping})
     return mapping
 
 
