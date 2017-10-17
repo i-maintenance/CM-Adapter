@@ -41,6 +41,7 @@ producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,
 def update(last_sent_time=None):
     """
     Fetches recent sensor data from the CM setup and forwards new entries to the i-Maintenance messaging bus.
+    After fetching and updating data a new cycle is scheduled.
     :param last_sent_time: Last time of previous update. Used to determine new entries.
         If `None`, all entries will be forwarded.
     """
