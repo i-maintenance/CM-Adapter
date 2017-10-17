@@ -148,7 +148,9 @@ def fetch_id_mapping(host, port, fallback):
     except Exception as e:
         if not fallback:
             raise e
+        logger.warning('Could not fetch id mapping...')
         return fallback
+
     return mapping
 
 
