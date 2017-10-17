@@ -38,12 +38,13 @@ producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,
                          acks='all')
 
 
-def update(last_sent_time=None):
+def update(last_sent_time=None, id_map=None):
     """
     Fetches recent sensor data from the CM setup and forwards new entries to the i-Maintenance messaging bus.
     After fetching and updating data a new cycle is scheduled.
     :param last_sent_time: Last time of previous update. Used to determine new entries.
         If `None`, all entries will be forwarded.
+    :param id_map: Given mapping of SensorThings IDs. This map is updated during the iteration.
     """
     try:
         # fetch sensor data
@@ -53,8 +54,10 @@ def update(last_sent_time=None):
         # filter data
         sensor_data = sensor_data.ix[sensor_data.index > last_sent_time] if last_sent_time else sensor_data
 
+        # fetch id mapping
+        id_map = fetch_id_mapping(host=SENSORTHINGS_HOST, port=SENSORTHINGS_PORT, fallback=id_map)
+
         # delegate to messaging bus
-        id_map = fetch_id_mapping(host=SENSORTHINGS_HOST, port=SENSORTHINGS_PORT)
         publish_sensor_data(data=sensor_data, id_map=id_map, topic=KAFKA_TOPIC, ignored=IGNORED_FIELDS)
         last_sent_time = sensor_data.index[-1]
         logger.info('Published {} new sensor entries till {}'.format(len(sensor_data), last_sent_time))
@@ -64,7 +67,8 @@ def update(last_sent_time=None):
 
     # schedule next update
     interval = timedelta(minutes=UPDATE_INTERVAL).total_seconds()
-    threading.Timer(interval=interval, function=update, kwargs={'last_sent_time': last_sent_time}).start()
+    kwargs = {'last_sent_time': last_sent_time, 'id_map': id_map}
+    threading.Timer(interval=interval, function=update, kwargs=kwargs).start()
     logger.info('Scheduled next update at {}'.format(datetime.now() + timedelta(minutes=UPDATE_INTERVAL)))
 
 
@@ -119,26 +123,32 @@ def publish_sensor_data(data, id_map, topic, ignored=None):
     producer.flush()
 
 
-def fetch_id_mapping(host, port):
+def fetch_id_mapping(host, port, fallback):
     """
     Fetches IDs from SensorThings server and creates a dictionary with the proper ID mapping.
     :param host: Host of SensorThings server.
     :param port: Port of SensorThings server.
+    :param fallback: Fallback mapping in case of an error. If `None` the actual error while be raised.
     :return: `dict`, which is mapping CM specific IDs to global SensorThings IDs.
     """
     mapping = dict()
-    url = 'http://{}:{}/v1.0/Datastreams'.format(host, port)
-    while True:
-        url = url.replace('localhost', host).replace('8080', port)  # replace wrong base url and port
-        datastreams = requests.get(url=url).json()
+    try:
+        url = 'http://{}:{}/v1.0/Datastreams'.format(host, port)
+        while True:
+            url = url.replace('localhost', host).replace('8080', port)  # replace wrong base url and port
+            datastreams = requests.get(url=url).json()
 
-        mapping.update({d['name']: d['@iot.id'] for d in datastreams['value']})
+            mapping.update({d['name']: d['@iot.id'] for d in datastreams['value']})
 
-        if '@iot.nextLink' not in datastreams:
-            break
-        url = datastreams['@iot.nextLink']
+            if '@iot.nextLink' not in datastreams:
+                break
+            url = datastreams['@iot.nextLink']
 
-    logger.info('Fetched id mapping: %s', mapping, extra={'': mapping})
+        logger.info('Fetched id mapping: %s', mapping, extra={'': mapping})
+    except Exception as e:
+        if not fallback:
+            raise e
+        return fallback
     return mapping
 
 
