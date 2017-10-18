@@ -144,7 +144,7 @@ def fetch_id_mapping(host, port, fallback):
                 break
             url = datastreams['@iot.nextLink']
 
-        logger.info('Fetched id mapping: %s', mapping, extra={'': mapping})
+        logger.info('Fetched id mapping: %s', mapping, extra={'sensorthings_ids': mapping})
     except Exception as e:
         if not fallback:
             raise e
