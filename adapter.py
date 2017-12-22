@@ -5,7 +5,8 @@ import logging
 import threading
 from datetime import datetime, timedelta
 import sys
-
+import time
+import pytz
 import requests
 import pandas as pd
 from kafka import KafkaProducer
@@ -113,14 +114,17 @@ def publish_sensor_data(data, id_map, topic, ignored=None):
 
     for observation_time in data.index:
         for sensor in [s for s in data.columns if s not in ignored]:
-            message = {'phenomenonTime': observation_time.isoformat(),
-                       'resultTime': datetime.now().isoformat(),
+            # This line expect the Siemens SPS to have only summertime. Change it if it fails
+            obs_time = observation_time + timedelta(seconds=time.altzone) - timedelta(seconds=time.timezone)
+            message = {'phenomenonTime': obs_time.isoformat(), # observation_time.replace(tzinfo=pytz.UTC).isoformat(),
+                       'resultTime':datetime.utcnow().isoformat(),
                        'result': float(data.loc[observation_time, sensor]),
                        'Datastream': {'@iot.id': id_map[sensor]}}
+            print(message)
             producer.send(topic, message)
 
-    # block until all messages are sent
-    producer.flush()
+        # block until all messages are sent
+        producer.flush()
 
 
 def fetch_id_mapping(host, port, fallback):
