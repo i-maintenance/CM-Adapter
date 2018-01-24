@@ -116,11 +116,11 @@ def publish_sensor_data(data, id_map, topic, ignored=None):
         for sensor in [s for s in data.columns if s not in ignored]:
             # This line expect the Siemens SPS to have only summertime. Change it if it fails
             obs_time = observation_time + timedelta(seconds=time.altzone) - timedelta(seconds=time.timezone)
-            message = {'phenomenonTime': obs_time.isoformat(), # observation_time.replace(tzinfo=pytz.UTC).isoformat(),
-                       'resultTime':datetime.utcnow().isoformat(),
+            message = {'phenomenonTime': obs_time.replace(tzinfo=pytz.UTC).isoformat(),
+                       'resultTime': datetime.utcnow().replace(tzinfo=pytz.UTC).isoformat(),
                        'result': float(data.loc[observation_time, sensor]),
                        'Datastream': {'@iot.id': id_map[sensor]}}
-            print(message)
+            # print(message)
             producer.send(topic, message)
 
         # block until all messages are sent
