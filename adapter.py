@@ -60,6 +60,7 @@ def update(last_sent_time=None, id_map=None):
 
         # delegate to messaging bus
         publish_sensor_data(data=sensor_data, id_map=id_map, topic=KAFKA_TOPIC, ignored=IGNORED_FIELDS)
+        #logger.info('{}'.format(sensor_data.index))
         last_sent_time = sensor_data.index[-1]
         logger.info('Published {} new sensor entries till {}'.format(len(sensor_data), last_sent_time))
 
