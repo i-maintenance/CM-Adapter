@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import os
 import csv
 import json
@@ -18,14 +20,14 @@ BOOTSTRAP_SERVERS = ['il061:9092', 'il062:9092', 'il063:9092']
 IGNORED_FIELDS = ['Record', 'Wind', 'Temp_Aussen', 'Feuchte_Aussen']
 UPDATE_INTERVAL = 1  # in minutes
 
-LOGSTASH_HOST = os.getenv('LOGSTASH_HOST', 'localhost')
+LOGSTASH_HOST = os.getenv('LOGSTASH_HOST', 'il060')
 LOGSTASH_PORT = int(os.getenv('LOGSTASH_PORT', '5000'))
 
 SENSORTHINGS_HOST = os.getenv('SENSORTHINGS_HOST', 'il060')
 SENSORTHINGS_PORT = os.getenv('SENSORTHINGS_PORT', '8082')
 
 # setup logging
-logger = logging.getLogger('cm-adapter')
+logger = logging.getLogger('cm-adapter.logging')
 logger.setLevel(logging.INFO)
 console_logger = logging.StreamHandler(stream=sys.stdout)
 console_logger.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
