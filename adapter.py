@@ -126,7 +126,7 @@ def publish_sensor_data(data, id_map, topic, ignored=None):
                        'resultTime': datetime.utcnow().replace(tzinfo=pytz.UTC).isoformat(),
                        'result': float(data.loc[observation_time, sensor]),
                        'Datastream': {'@iot.id': id_map[sensor]}}
-            print(message)
+            # print(message)
             producer.send(topic, message, key=str(message['Datastream']['@iot.id']).encode('utf-8'))
 
         # block until all messages are sent
