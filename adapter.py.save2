@@ -37,7 +37,7 @@ logger.info('Sending logstash to %s:%d', logstash_handler.host, logstash_handler
 
 producer = KafkaProducer(bootstrap_servers=BOOTSTRAP_SERVERS,
                          api_version=(0, 9),
-                         value_serializer=lambda m: json.dumps(m).encode('utf-8'),
+                         value_serializer=lambda m: json.dumps(m).encode('ascii'),
                          acks='all')
 
 
@@ -52,8 +52,6 @@ def update(last_sent_time=None, id_map=None):
     try:
         # fetch sensor data
         sensor_data = fetch_sensor_data(cm_host=CM_APP_HOST)
-        if sensor_data == list():
-            logger.warning("CM PLC may not available")
         logger.info('Fetched {} sensor entries'.format(len(sensor_data)))
 
         # filter data
@@ -126,7 +124,7 @@ def publish_sensor_data(data, id_map, topic, ignored=None):
                        'resultTime': datetime.utcnow().replace(tzinfo=pytz.UTC).isoformat(),
                        'result': float(data.loc[observation_time, sensor]),
                        'Datastream': {'@iot.id': id_map[sensor]}}
-            print(message)
+            # print(message)
             producer.send(topic, message, key=str(message['Datastream']['@iot.id']).encode('utf-8'))
 
         # block until all messages are sent
